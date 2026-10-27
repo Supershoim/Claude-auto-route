@@ -64,7 +64,9 @@ test('the band shows the route on terminal and desktop, before and after a promp
   on('command.register', () => ({ value: { command: 'route' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('model.complete', () => ({ value: { isAnswered: true, text: '3', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }))
-  on('prompt.submit', (_, e) => ({ text: e.text }))
+  const seenContext: string[] = []
+  on('prompt.submit', (_, e) => (seenContext.push(...(e.context ?? [])), { text: e.text }))
+  on('ui.log', () => ({ value: undefined }))
   const toasts: string[] = []
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', (_, e) => (toasts.push(JSON.stringify(e)), { value: undefined }))
@@ -84,6 +86,7 @@ test('the band shows the route on terminal and desktop, before and after a promp
 
   await $.prompt.submit({ text: 'refactor the auth layer and migrate the session store to redis' } as never)
   expect(toasts.length).toBe(1)
+  expect(seenContext.at(-1)).toMatch(/^auto-route routed this turn to opus·xhigh[\s\S]*`route: opus·xhigh · T3/)
   expect(toasts[0]).toMatch(/opus·xhigh/)
   for (const surface of ['terminal', 'desktop'] as const) {
     ui = await band(surface)
@@ -100,6 +103,7 @@ test('main-loop requests are rewritten to the route and the answer gets a footer
   on('prompt.submit', (_, e) => ({ text: e.text }))
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
+  on('ui.log', () => ({ value: undefined }))
   on('turn.step', async function* (_, e) {
     sent.push({ model: e.model, effort: e.effort })
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [] } as never

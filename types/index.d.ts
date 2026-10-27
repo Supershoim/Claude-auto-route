@@ -16,6 +16,9 @@ export type RouteSettings = {
   isLlmRefined: boolean
   // Append a one-line route footer under each answer (the one display every surface shows).
   isFooterShown: boolean
+  // Have the model open each reply with the route line: the one display that lands
+  // in the stored transcript, so it shows in the app for cloud sessions too.
+  isEchoed: boolean
   // Fixed route that bypasses classification.
   pin: { model: Model; effort: Effort } | null
 }

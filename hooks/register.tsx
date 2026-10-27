@@ -7,8 +7,8 @@ import { CLASSIFIER_SYSTEM, heuristic, parseTier, route, routeAgent } from './cl
 const routeAtom = atom({ plugin: 'auto-route', key: 'route' } as const, null, { shape: 'route-1' })
 const settingsAtom = atom(
   { plugin: 'auto-route', key: 'settings' } as const,
-  { isEnabled: true, isLlmRefined: true, isFooterShown: true, pin: null } as RouteSettings,
-  { shape: 'settings-2' },
+  { isEnabled: true, isLlmRefined: true, isFooterShown: true, isEchoed: true, pin: null } as RouteSettings,
+  { shape: 'settings-3' },
 )
 
 const MODELS: Model[] = ['haiku', 'sonnet', 'opus', 'fable']
@@ -34,7 +34,8 @@ async function refine($: EngineInterface, text: string): Promise<number | undefi
 const HELP = `/route                    show the current route
 /route on | off           enable / disable auto-routing
 /route llm on | off       haiku refinement of the heuristic tier
-/route footer on | off    route line under each answer
+/route footer on | off    route line under each answer (terminal/desktop drawing)
+/route echo on | off      model opens each reply with the route (shows everywhere)
 /route pin <model> [effort]   fix model (+effort) for every turn
 /route unpin              back to auto`
 
@@ -73,7 +74,12 @@ export const register: Register = on => {
     await update($, routeAtom, () => r)
     $.ui.status(`route ${label(r)} · T${r.tier} ${r.source}`)
     if (!prev || label(prev) !== label(r)) $.ui.toast(`auto-route → ${describe(r)}`)
-    return next(e)
+    $.ui.log(`auto-route → ${describe(r)}`)
+    if (!settings.isEchoed) return next(e)
+    const echo =
+      `auto-route routed this turn to ${label(r)}. Begin your reply with exactly this line, ` +
+      `then a blank line, then answer as usual:\n\`route: ${describe(r)}\``
+    return next({ ...e, context: [...(e.context ?? []), echo] })
   })
 
   // Main loop only; subagents get their route through the Agent call below.
@@ -138,6 +144,10 @@ export const register: Register = on => {
         if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
         await set(s => ({ ...s, isFooterShown: arg1 === 'on' }))
         return { text: `route footer ${arg1}` }
+      case 'echo':
+        if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
+        await set(s => ({ ...s, isEchoed: arg1 === 'on' }))
+        return { text: `route echo ${arg1}` }
       case 'llm':
         if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
         await set(s => ({ ...s, isLlmRefined: arg1 === 'on' }))
@@ -157,7 +167,7 @@ export const register: Register = on => {
       case '':
       case 'status': {
         const [s, r] = await Promise.all([read($, settingsAtom), read($, routeAtom)])
-        const state = `${s.isEnabled ? 'on' : 'off'}, llm ${s.isLlmRefined ? 'on' : 'off'}, footer ${s.isFooterShown ? 'on' : 'off'}${s.pin ? `, pinned ${label(s.pin)}` : ''}`
+        const state = `${s.isEnabled ? 'on' : 'off'}, llm ${s.isLlmRefined ? 'on' : 'off'}, footer ${s.isFooterShown ? 'on' : 'off'}, echo ${s.isEchoed ? 'on' : 'off'}${s.pin ? `, pinned ${label(s.pin)}` : ''}`
         const cur = r ? `${label(r)} (T${r.tier}, ${r.source}: ${r.reason})` : 'none yet'
         return { text: `${state}\ncurrent: ${cur}\n\n${HELP}` }
       }

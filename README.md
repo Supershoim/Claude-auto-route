@@ -21,9 +21,11 @@ Rules: short follow-ups ("yes, go ahead") and terse pings of 1–3 words ("test"
 | Band above the prompt (`auto-route: opus·high · T2 · …`) | terminal, desktop |
 | Status line under the prompt | terminal |
 | Toast when the route changes | terminal, desktop, app |
-| Footer line under each answer (`route: …`) | every surface, mobile and IDE included; `/route footer off` hides it |
+| Footer line under each answer (`route: …`) | surfaces the engine draws (terminal, local desktop); `/route footer off` hides it |
+| Transcript log line `auto-route → …` | engine-drawn transcript; SDK hosts receive it as `ui_log` |
+| **Echo**: the reply opens with `` `route: …` `` | everywhere, including cloud sessions viewed in the Claude app, since it is part of the stored reply; ~40 tokens/turn; `/route echo off` disables it |
 
-Commands: `/route` (status), `/route on|off`, `/route llm on|off`, `/route footer on|off`, `/route pin <model> [effort]`, `/route unpin`.
+Commands: `/route` (status), `/route on|off`, `/route llm on|off`, `/route footer on|off`, `/route echo on|off`, `/route pin <model> [effort]`, `/route unpin`.
 
 ## Install
 
