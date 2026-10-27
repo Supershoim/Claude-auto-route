@@ -1,0 +1,5 @@
+{
+  "name": "auto-route",
+  "owner": { "name": "Ovidiu Pop" },
+  "plugins": [{ "name": "auto-route", "source": "./", "description": "Auto-selects model + effort for every new prompt and subagent task." }]
+}
