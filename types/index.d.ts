@@ -14,6 +14,8 @@ export type RouteSettings = {
   isEnabled: boolean
   // Ask haiku to refine the heuristic tier on non-trivial prompts.
   isLlmRefined: boolean
+  // Append a one-line route footer under each answer (the one display every surface shows).
+  isFooterShown: boolean
   // Fixed route that bypasses classification.
   pin: { model: Model; effort: Effort } | null
 }

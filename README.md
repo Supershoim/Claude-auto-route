@@ -14,7 +14,16 @@ Routes every new task to the cheapest model + effort that fits it.
 
 Rules: short follow-ups ("yes, go ahead") inherit the previous route; a one-tier downgrade keeps the model (prompt cache survives) and only lowers effort; `quick`/`briefly` drops effort one step; `ultrathink`/`max effort` sets `max`; `use <model>` / `effort: <level>` in the prompt wins.
 
-Commands: `/route` (status), `/route on|off`, `/route llm on|off`, `/route pin <model> [effort]`, `/route unpin`.
+## Where the route shows
+
+| Display | Surfaces |
+|---|---|
+| Band above the prompt (`auto-route: opus·high · T2 · …`) | terminal, desktop |
+| Status line under the prompt | terminal |
+| Toast when the route changes | terminal, desktop, app |
+| Footer line under each answer (`route: …`) | every surface, mobile and IDE included; `/route footer off` hides it |
+
+Commands: `/route` (status), `/route on|off`, `/route llm on|off`, `/route footer on|off`, `/route pin <model> [effort]`, `/route unpin`.
 
 ## Install
 

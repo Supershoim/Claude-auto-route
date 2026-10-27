@@ -7,8 +7,8 @@ import { CLASSIFIER_SYSTEM, heuristic, parseTier, route, routeAgent } from './cl
 const routeAtom = atom({ plugin: 'auto-route', key: 'route' } as const, null, { shape: 'route-1' })
 const settingsAtom = atom(
   { plugin: 'auto-route', key: 'settings' } as const,
-  { isEnabled: true, isLlmRefined: true, pin: null } as RouteSettings,
-  { shape: 'settings-1' },
+  { isEnabled: true, isLlmRefined: true, isFooterShown: true, pin: null } as RouteSettings,
+  { shape: 'settings-2' },
 )
 
 const MODELS: Model[] = ['haiku', 'sonnet', 'opus', 'fable']
@@ -18,6 +18,7 @@ const takesEffort = (model: string) => !/haiku/i.test(model)
 
 const label = (r: Pick<Route, 'model' | 'effort'>) =>
   takesEffort(r.model) ? `${r.model}·${r.effort}` : r.model
+const describe = (r: Route) => `${label(r)} · T${r.tier} · ${r.source}: ${r.reason}`
 
 async function refine($: EngineInterface, text: string): Promise<number | undefined> {
   const r = await $.model.complete({
@@ -33,12 +34,15 @@ async function refine($: EngineInterface, text: string): Promise<number | undefi
 const HELP = `/route                    show the current route
 /route on | off           enable / disable auto-routing
 /route llm on | off       haiku refinement of the heuristic tier
+/route footer on | off    route line under each answer
 /route pin <model> [effort]   fix model (+effort) for every turn
 /route unpin              back to auto`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'route', description: 'Auto model/effort routing: status, on/off, pin' })
+    const settings = await read($, settingsAtom)
+    if (settings.isEnabled) $.ui.status('route auto · waiting for first prompt')
     return next(e)
   })
 
@@ -65,8 +69,10 @@ export const register: Register = on => {
       r = route(e.text, prev, tier)
     }
 
+    const prev = await read($, routeAtom)
     await update($, routeAtom, () => r)
     $.ui.status(`route ${label(r)} · T${r.tier} ${r.source}`)
+    if (!prev || label(prev) !== label(r)) $.ui.toast(`auto-route → ${describe(r)}`)
     return next(e)
   })
 
@@ -80,6 +86,29 @@ export const register: Register = on => {
     return yield* next(
       takesEffort(r.model) ? { ...e, model: r.model, effort: r.effort } : { ...rest, model: r.model },
     )
+  })
+
+  // Band above the prompt: terminal and desktop draw it.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey) return next(e)
+    const [settings, r] = await Promise.all([read($, settingsAtom), read($, routeAtom)])
+    if (!settings.isEnabled) return next(e)
+    const { Text } = $.ui.resolve(e)
+    const text = settings.pin
+      ? `auto-route: pinned ${label(settings.pin)}`
+      : r
+        ? `auto-route: ${describe(r)}`
+        : 'auto-route: on · routing from the next prompt'
+    return <Text dimColor wrap="truncate-end">{text}</Text>
+  })
+
+  // Footer under the main answer: the one display mobile and the IDE also show.
+  on('turn.complete', async ($, e, next) => {
+    const done = await next(e)
+    if (e.agentId !== undefined || e.reason !== 'answer') return done
+    const [settings, r] = await Promise.all([read($, settingsAtom), read($, routeAtom)])
+    if (!settings.isEnabled || !settings.isFooterShown || !r) return done
+    return { ...done, text: `${done.text}\n\n_route: ${describe(r)}_` }
   })
 
   on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
@@ -105,6 +134,10 @@ export const register: Register = on => {
         await set(s => ({ ...s, isEnabled: cmd === 'on' }))
         if (cmd === 'off') $.ui.status(undefined)
         return { text: `auto-route ${cmd}` }
+      case 'footer':
+        if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
+        await set(s => ({ ...s, isFooterShown: arg1 === 'on' }))
+        return { text: `route footer ${arg1}` }
       case 'llm':
         if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
         await set(s => ({ ...s, isLlmRefined: arg1 === 'on' }))
@@ -124,7 +157,7 @@ export const register: Register = on => {
       case '':
       case 'status': {
         const [s, r] = await Promise.all([read($, settingsAtom), read($, routeAtom)])
-        const state = `${s.isEnabled ? 'on' : 'off'}, llm ${s.isLlmRefined ? 'on' : 'off'}${s.pin ? `, pinned ${label(s.pin)}` : ''}`
+        const state = `${s.isEnabled ? 'on' : 'off'}, llm ${s.isLlmRefined ? 'on' : 'off'}, footer ${s.isFooterShown ? 'on' : 'off'}${s.pin ? `, pinned ${label(s.pin)}` : ''}`
         const cur = r ? `${label(r)} (T${r.tier}, ${r.source}: ${r.reason})` : 'none yet'
         return { text: `auto-route ${state}\ncurrent: ${cur}\n\n${HELP}` }
       }

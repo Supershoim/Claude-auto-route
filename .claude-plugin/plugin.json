@@ -1,6 +1,6 @@
 {
   "name": "auto-route",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Classifies each new prompt and Agent task, then routes it to the cheapest model + effort that fits.",
   "types": "./types/index.d.ts",
   "license": "MIT",

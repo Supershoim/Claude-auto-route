@@ -59,3 +59,63 @@ test('a question that mentions build words stays a question; the imperative does
   expect(heuristic('write a test for the retry hook').tier).toBe(2)
   expect(heuristic('generate a mod to auto select the correct effort and model for all new tasks. check the promts, evaluate the most appropriate model and effort setting and apply.').tier).toBe(3)
 })
+
+test('the band shows the route on terminal and desktop, before and after a prompt', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'route' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('model.complete', () => ({ value: { isAnswered: true, text: '3', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  const toasts: string[] = []
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => (toasts.push(JSON.stringify(e)), { value: undefined }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  const band = (surface: 'terminal' | 'desktop') =>
+    $.ui.mount({
+      plugin: 'auto-route',
+      component: 'AbovePrompt',
+      surface,
+      props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 80, scroll: { offset: 0, bodyRows: 9 }, view: {} },
+    })
+
+  let ui = await band('desktop')
+  expect((await ui.find({ type: 'Text', text: /auto-route/ }))?.text).toBe('auto-route: on · routing from the next prompt')
+  await ui.unmount()
+
+  await $.prompt.submit({ text: 'refactor the auth layer and migrate the session store to redis' } as never)
+  expect(toasts.length).toBe(1)
+  expect(toasts[0]).toMatch(/opus·xhigh/)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    ui = await band(surface)
+    expect((await ui.find({ type: 'Text', text: /auto-route/ }))?.text).toMatch(/^auto-route: opus·xhigh · T3/)
+    await ui.unmount()
+  }
+})
+
+test('main-loop requests are rewritten to the route and the answer gets a footer', async ($, on) => {
+  const sent: { model: string; effort?: unknown }[] = []
+  on('command.register', () => ({ value: { command: 'route' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('model.complete', () => ({ value: { isAnswered: false, reason: 'api-error', status: 500, error: 'unknown', usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('turn.step', async function* (_, e) {
+    sent.push({ model: e.model, effort: e.effort })
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [] } as never
+  })
+  on('turn.complete', () => ({ text: 'done.' }))
+
+  await $.session.start({ cwd: '/', surface: 'mobile', isInteractive: true })
+  await $.prompt.submit({ text: 'fix the failing test in parser.ts' } as never)
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 })) void _
+  for await (const _ of $.turn.step({ turnId: 't1', index: 1, model: 'x', messageCount: 2, agentId: 'a1' })) void _
+
+  expect(sent[0]).toMatchObject({ model: 'opus', effort: 'high' })
+  expect(sent[1]).toMatchObject({ model: 'x' })
+
+  const done = await $.turn.complete({ turnId: 't1', answer: 'done.', durationMs: 1, isAborted: false, reason: 'answer' })
+  expect(done.text).toMatch(/^done\.\n\n_route: opus·high · T2/)
+  const sub = await $.turn.complete({ turnId: 't2', answer: 'x', durationMs: 1, isAborted: false, reason: 'answer', agentId: 'a1' })
+  expect(sub.text).toBe('done.')
+})
