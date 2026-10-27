@@ -41,6 +41,13 @@ export function heuristic(text: string): Signals {
   const isSimple = SIMPLE.test(text)
   const reasons: string[] = []
 
+  // 1–3 words with nothing concrete ("test", "fix it", "continue") is a ping or
+  // a follow-up, not a task: a lone keyword says nothing about its size.
+  const hasFile = paths > 0 || /\b[\w-]+\.[a-z]{1,4}\b/i.test(text)
+  if (n <= 3 && !hardHits.size && !hasCode && !hasFile) {
+    return { tier: 0, reason: 'terse', hasOwnSignal: false }
+  }
+
   let tier: number = 1
   if (TRIVIAL.test(text) || (n <= 4 && !isBuild && !hardHits.size && !hasCode)) {
     tier = 0
@@ -84,11 +91,15 @@ export function route(text: string, prev: Route | null, tierOverride?: Tier): Ro
   const sig = heuristic(text)
 
   // "yes do it" after a big task stays on the big task's route.
-  if (prev && !sig.hasOwnSignal && tierOverride === undefined) {
-    return { ...prev, source: 'inherited', reason: `follow-up of ${prev.reason}` }
+  const ex = explicit(text)
+  const isExplicit = ex.model !== undefined || ex.effort !== undefined || MAX.test(text)
+  if (prev && !sig.hasOwnSignal && !isExplicit && tierOverride === undefined) {
+    const reason = prev.source === 'inherited' ? prev.reason : `follow-up of ${prev.reason}`
+    return { ...prev, source: 'inherited', reason }
   }
 
-  const tier = tierOverride ?? sig.tier
+  // A terse explicit prompt ("ultrathink", "use sonnet") adjusts the current task's route.
+  const tier = tierOverride ?? (prev && !sig.hasOwnSignal ? prev.tier : sig.tier)
   let { model, effort } = TIERS[tier]
 
   // Hysteresis: a one-step downgrade keeps the model so the prompt cache
@@ -98,8 +109,6 @@ export function route(text: string, prev: Route | null, tierOverride?: Tier): Ro
   if (QUICK.test(text)) effort = shift(effort, -1)
   if (MAX.test(text)) effort = 'max'
 
-  const ex = explicit(text)
-  const isExplicit = ex.model !== undefined || ex.effort !== undefined
   return {
     tier,
     model: ex.model ?? model,

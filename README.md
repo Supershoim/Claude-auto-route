@@ -12,7 +12,7 @@ Routes every new task to the cheapest model + effort that fits it.
 | 2 | opus | high | implement, fix, multi-step |
 | 3 | opus | xhigh | architecture, refactor/migration, hard debugging, audits |
 
-Rules: short follow-ups ("yes, go ahead") inherit the previous route; a one-tier downgrade keeps the model (prompt cache survives) and only lowers effort; `quick`/`briefly` drops effort one step; `ultrathink`/`max effort` sets `max`; `use <model>` / `effort: <level>` in the prompt wins.
+Rules: short follow-ups ("yes, go ahead") and terse pings of 1–3 words ("test", "fix it") inherit the previous route (haiku when there is none); a one-tier downgrade keeps the model (prompt cache survives) and only lowers effort; `quick`/`briefly` drops effort one step; `ultrathink`/`max effort` sets `max`; `use <model>` / `effort: <level>` in the prompt wins.
 
 ## Where the route shows
 

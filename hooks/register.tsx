@@ -133,7 +133,7 @@ export const register: Register = on => {
       case 'off':
         await set(s => ({ ...s, isEnabled: cmd === 'on' }))
         if (cmd === 'off') $.ui.status(undefined)
-        return { text: `auto-route ${cmd}` }
+        return { text: `routing ${cmd}` }
       case 'footer':
         if (arg1 !== 'on' && arg1 !== 'off') return { text: HELP }
         await set(s => ({ ...s, isFooterShown: arg1 === 'on' }))
@@ -159,7 +159,7 @@ export const register: Register = on => {
         const [s, r] = await Promise.all([read($, settingsAtom), read($, routeAtom)])
         const state = `${s.isEnabled ? 'on' : 'off'}, llm ${s.isLlmRefined ? 'on' : 'off'}, footer ${s.isFooterShown ? 'on' : 'off'}${s.pin ? `, pinned ${label(s.pin)}` : ''}`
         const cur = r ? `${label(r)} (T${r.tier}, ${r.source}: ${r.reason})` : 'none yet'
-        return { text: `auto-route ${state}\ncurrent: ${cur}\n\n${HELP}` }
+        return { text: `${state}\ncurrent: ${cur}\n\n${HELP}` }
       }
       default:
         return { text: HELP }

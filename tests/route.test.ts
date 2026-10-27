@@ -119,3 +119,17 @@ test('main-loop requests are rewritten to the route and the answer gets a footer
   const sub = await $.turn.complete({ turnId: 't2', answer: 'x', durationMs: 1, isAborted: false, reason: 'answer', agentId: 'a1' })
   expect(sub.text).toBe('done.')
 })
+
+test('a terse prompt follows the task before it, or goes to haiku with none', async () => {
+  for (const t of ['test', 'fix it', 'continue', 'update']) {
+    expect(heuristic(t)).toMatchObject({ tier: 0, hasOwnSignal: false })
+  }
+  const big = route('refactor the auth layer and migrate the session store', null)
+  expect(route('test', big)).toMatchObject({ model: 'opus', effort: 'xhigh', source: 'inherited' })
+  expect(route('fix it', route('fix it', big)).reason).toBe(`follow-up of ${big.reason}`)
+  expect(route('test', null)).toMatchObject({ model: 'haiku', tier: 0 })
+  // Concrete or explicit short prompts are still classified on their own.
+  expect(heuristic('fix parser.ts').tier).toBe(2)
+  expect(route('use sonnet', big)).toMatchObject({ model: 'sonnet', source: 'explicit' })
+  expect(route('ultrathink', big)).toMatchObject({ model: 'opus', effort: 'max' })
+})
